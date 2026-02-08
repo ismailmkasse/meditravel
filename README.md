@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # MediTravel Platform (Full Stack)
 
 International **Medical Tourism + Hotels + Tours** platform prototype upgraded to a **realistic, legal, production-style full-stack**:
@@ -97,3 +98,6 @@ Frontend should be on: `http://localhost:5173`
 - Replace local file uploads with object storage (S3/GCS) for verification docs + attachments
 - Add rate-limit and request validation on webhook endpoint
 - Add rate-limits + WAF in front of API
+=======
+# meditravel
+>>>>>>> ef13cbef975e94a5aae405bbb404f57510b2d6b1
