@@ -1235,7 +1235,6 @@ function AdminDashboardPage() {
   const [quotes, setQuotes] = useState<Array<{ id: string; visitor: string; procedure: string; country: string; status: 'New' | 'In review' | 'Sent'; createdAt: string }>>([]);
 
   const [adminDocs, setAdminDocs] = useState<any[]>([]);
-  const [docNote, setDocNote] = useState('');
   const [adminPayouts, setAdminPayouts] = useState<any[]>([]);
   const [adminAudit, setAdminAudit] = useState<any[]>([]);
 
@@ -1574,7 +1573,6 @@ function ProviderDashboardPage() {
   const [docFile, setDocFile] = useState<File | null>(null);
   const [payouts, setPayouts] = useState<any[]>([]);
   const [stripeConnect, setStripeConnect] = useState<any | null>(null);
-  const [actionMsg, setActionMsg] = useState<string | null>(null);
 
 const [syncing, setSyncing] = useState(false);
 const [syncError, setSyncError] = useState<string | null>(null);
@@ -1638,7 +1636,7 @@ useEffect(() => {
 
   const addListing = async () => {
     try {
-      const created = await api.procedureUpsert({ name: 'New Procedure', category: 'General', priceMinUSD: 0, priceMaxUSD: 0, description: '' });
+      await api.procedureUpsert({ name: 'New Procedure', category: 'General', priceMinUSD: 0, priceMaxUSD: 0, description: '' });
       await syncFromApi();
     } catch {
       setListings((prev) => [
@@ -1897,6 +1895,125 @@ useEffect(() => {
             </Card>
           </div>
 
+
+        {tab === 'verification' && (
+          <Card>
+            <CardContent className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Verification Documents</h2>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="border rounded-xl p-4 bg-white">
+                  <h3 className="font-semibold mb-2">Upload a document</h3>
+                  <div className="space-y-2">
+                    <Input value={docType} onChange={(e) => setDocType(e.target.value)} placeholder="Doc type (e.g. Business License)" />
+                    <Input type="file" onChange={(e) => setDocFile(e.target.files?.[0] || null)} />
+                    <Button className="btn-primary" onClick={async () => {
+                      if (!docFile) return;
+                      try {
+                        await api.uploadProviderVerificationDoc(docType, docFile);
+                        const docs = await api.providerVerificationDocsMe();
+                        setVerificationDocs(docs);
+                        setDocFile(null);
+                      } catch (e) {
+                        console.error(e);
+                      }
+                    }}>Upload</Button>
+                    <p className="text-xs text-gray-500">Upload only documents you are authorized to share. Files are reviewed by admin.</p>
+                  </div>
+                </div>
+
+                <div className="border rounded-xl p-4 bg-white">
+                  <h3 className="font-semibold mb-2">My submitted docs</h3>
+                  <div className="space-y-2 max-h-80 overflow-auto">
+                    {verificationDocs.map((d) => (
+                      <div key={d.id} className="border rounded-lg p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium">{d.docType}</div>
+                            <div className="text-xs text-gray-500">{d.fileName} • {new Date(d.createdAt).toLocaleString()}</div>
+                          </div>
+                          <Badge className={d.status === 'APPROVED' ? 'bg-green-100 text-green-700' : d.status === 'REJECTED' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-800'}>
+                            {d.status}
+                          </Badge>
+                        </div>
+                        {d.reviewNote && <div className="text-xs text-gray-600 mt-2">Note: {d.reviewNote}</div>}
+                      </div>
+                    ))}
+                    {!verificationDocs.length && <div className="text-sm text-gray-500">No documents uploaded yet.</div>}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {tab === 'payments' && (
+          <div className="grid md:grid-cols-2 gap-6">
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="text-xl font-semibold mb-2">Stripe Connect</h2>
+                <p className="text-sm text-gray-600 mb-4">Required to receive marketplace payouts (KYC/Bank onboarding).</p>
+
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span>Account</span><span className="font-semibold">{stripeStatus?.stripeAccountId || 'Not connected'}</span></div>
+                  <div className="flex justify-between"><span>Details submitted</span><span className="font-semibold">{stripeStatus?.stripeDetailsSubmitted ? 'Yes' : 'No'}</span></div>
+                  <div className="flex justify-between"><span>Charges enabled</span><span className="font-semibold">{stripeStatus?.stripeChargesEnabled ? 'Yes' : 'No'}</span></div>
+                  <div className="flex justify-between"><span>Payouts enabled</span><span className="font-semibold">{stripeStatus?.stripePayoutsEnabled ? 'Yes' : 'No'}</span></div>
+                </div>
+
+                <div className="mt-4 flex gap-2">
+                  <Button className="btn-primary" onClick={async () => {
+                    try {
+                      await api.stripeConnectCreateAccount();
+                      const link = await api.stripeConnectOnboardingLink();
+                      if (link?.url) window.open(link.url, '_blank');
+                      const s = await api.stripeConnectStatus();
+                      setStripeStatus(s);
+                    } catch (e) {
+                      console.error(e);
+                    }
+                  }}>
+                    {stripeStatus?.stripeAccountId ? 'Continue Onboarding' : 'Start Onboarding'}
+                  </Button>
+                  <Button variant="outline" onClick={async () => {
+                    try {
+                      const s = await api.stripeConnectStatus();
+                      setStripeStatus(s);
+                    } catch (e) {
+                      console.error(e);
+                    }
+                  }}>Refresh status</Button>
+                </div>
+
+                <p className="text-xs text-gray-500 mt-4">Note: Payouts will only run when Stripe Connect is enabled on the server and your account is fully onboarded.</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <h2 className="text-xl font-semibold mb-4">My payouts</h2>
+                <div className="space-y-2 max-h-80 overflow-auto">
+                  {providerPayouts.map((p) => (
+                    <div key={p.id} className="border rounded-xl p-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium">{(p.amountCents/100).toFixed(2)} {p.currency}</div>
+                          <div className="text-xs text-gray-500">Scheduled: {new Date(p.scheduledAt).toLocaleString()}</div>
+                        </div>
+                        <Badge className={p.status === 'PAID' ? 'bg-green-100 text-green-700' : p.status === 'FAILED' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-800'}>
+                          {p.status}
+                        </Badge>
+                      </div>
+                      {p.externalRef && <div className="text-xs text-gray-600 mt-2">Stripe ref: {p.externalRef}</div>}
+                      {p.error && <div className="text-xs text-red-600 mt-2">Error: {p.error}</div>}
+                    </div>
+                  ))}
+                  {!providerPayouts.length && <div className="text-sm text-gray-500">No payouts yet.</div>}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+        )}
       </div>
     </div>
   );
@@ -1942,7 +2059,7 @@ function ComparePage({ initialCountries }: { initialCountries?: string[] }) {
 
   const selectedCountries = selectedCountryIds
     .map((id) => countries.find((c) => c.id === id))
-    .filter(Boolean);
+    .filter((c): c is Country => Boolean(c));
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20">
