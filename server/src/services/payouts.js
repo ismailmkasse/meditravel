@@ -33,7 +33,8 @@ export async function schedulePayoutForPayment(paymentId) {
     e.code = 'payment_missing_provider';
     throw e;
   }
-  if (payment.payoutId) return await prisma.payout.findUnique({ where: { id: payment.payoutId } });
+  const existing = await prisma.payout.findUnique({ where: { paymentId: payment.id } });
+  if (existing) return existing;
 
   const providerId = payment.quotation.provider.id;
   const scheduledAt = new Date(Date.now() + config.payoutIntervalDays * 24 * 60 * 60 * 1000);
@@ -48,8 +49,6 @@ export async function schedulePayoutForPayment(paymentId) {
       scheduledAt
     }
   });
-
-  await prisma.payment.update({ where: { id: payment.id }, data: { payoutId: payout.id } });
   await auditLog({
     actorId: null,
     entityType: 'Payout',
