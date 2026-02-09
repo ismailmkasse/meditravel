@@ -1,0 +1,15 @@
+# node
+node_modules/
+server/node_modules/
+app/node_modules/
+
+# env
+.env
+server/.env
+
+# build
+app/dist/assets/
+
+# archives
+*.rar
+*.zip
